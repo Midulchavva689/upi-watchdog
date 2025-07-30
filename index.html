@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UPI watchdog - Fraud? Not on my watch.</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Staatliches&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        /* Custom CSS for animations and specific styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background */
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        /* Custom styles for Lucide icons (simplified representation) */
+        .icon-svg {
+            width: 52px;
+            height: 52px;
+            stroke-width: 2;
+            stroke: currentColor;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* Styles for the UPI Fraud Detector part */
+        input, textarea {
+            border: 1px solid #e2e8f0; /* Light border for inputs */
+            border-radius: 0.5rem; /* Rounded corners for inputs */
+            padding: 0.75rem 1rem;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color 0.2s ease-in-out;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #6366f1; /* Indigo focus border */
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); /* Soft focus shadow */
+        }
+        .alert {
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-top: 1.5rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+        }
+        .alert.fraud {
+            background-color: #fee2e2; /* Red-100 */
+            color: #dc2626; /* Red-600 */
+            border: 1px solid #ef4444; /* Red-500 */
+        }
+        .alert.safe {
+            background-color: #dcfce7; /* Green-100 */
+            color: #16a34a; /* Green-600 */
+            border: 1px solid #22c55e; /* Green-500 */
+        }
+        .alert-icon {
+            margin-right: 0.75rem;
+            font-size: 1.5rem;
+        }
+        /* Style for the QR scanner div */
+        #reader {
+            width: 100%;
+            max-width: 300px; /* Keep scanner view compact */
+            margin: 0 auto;
+            border: 1px solid #ccc;
+            border-radius: 0.5rem;
+            overflow: hidden; /* Ensure video feed stays within bounds */
+        }
+        /* New class for PhonePe button to differentiate */
+        .phonepe-button {
+            background-color: #8E2DE2; /* PhonePe's brand color (purple) */
+            color: white;
+        }
+        .phonepe-button:hover {
+            background-color: #630ea8; /* Darker purple on hover */
+        }
+        .phonepe-button:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(142, 45, 226, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col">
+
+    <header class="bg-white shadow-2xl p-6 flex flex-col items-center justify-center rounded-b-3xl border-b-4 border-red-600">
+        <h1
+            class="text-6xl md:text-7xl font-extrabold text-red-700 mb-2 tracking-wide"
+            style="font-family: 'Staatliches', cursive; text-shadow: 3px 3px 6px rgba(0,0,0,0.3);"
+        >
+            UPI watchdog
+        </h1>
+        <p class="text-xl md:text-2xl text-gray-800 font-medium italic mt-2">
+            "Fraud? Not on my watch."
+        </p>
+    </header>
+
+    <main class="flex-grow container mx-auto p-4 md:p-8">
+        <div class="bg-white rounded-3xl shadow-xl p-6 md:p-8 border border-gray-100">
+            <div id="menu-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8 mb-10">
+                <button id="dashboard-btn" class="menu-item flex flex-col items-center justify-center p-5 rounded-2xl shadow-lg transition-all duration-300 ease-in-out bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-75 focus:ring-offset-2" data-view="dashboard">
+                    <div class="mb-3 text-red-600">
+                        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                    </div>
+                    <span class="text-base font-bold text-center text-gray-800">Dashboard</span>
+                </button>
+                <button id="settings-btn" class="menu-item flex flex-col items-center justify-center p-5 rounded-2xl shadow-lg transition-all duration-300 ease-in-out bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-75 focus:ring-offset-2" data-view="settings">
+                    <div class="mb-3 text-red-600">
+                        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.78 1.22a2 2 0 0 0 .73 2.73l.15.08a2 2 0 0 1 1 1.73v.44a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.78-1.22a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </div>
+                    <span class="text-base font-bold text-center text-gray-800">Settings</span>
+                </button>
+                <button id="transaction-scanner-btn" class="menu-item flex flex-col items-center justify-center p-5 rounded-2xl shadow-lg transition-all duration-300 ease-in-out bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-75 focus:ring-offset-2" data-view="transaction-scanner">
+                    <div class="mb-3 text-red-600">
+                        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10a6 6 0 0 0-12 0v2a6 6 0 0 0 12 0v-2z"></path><path d="M12 21v-3"></path><path d="M12 3v3"></path><path d="M21 12h-3"></path><path d="M3 12h3"></path><path d="M19.07 4.93L16.24 7.76"></path><path d="M4.93 19.07L7.76 16.24"></path><path d="M4.93 4.93L7.76 7.76"></path><path d="M19.07 19.07L16.24 16.24"></path></svg>
+                    </div>
+                    <span class="text-base font-bold text-center text-gray-800">Transaction Scanner</span>
+                </button>
+                <button id="recent-alerts-btn" class="menu-item flex flex-col items-center justify-center p-5 rounded-2xl shadow-lg transition-all duration-300 ease-in-out bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-75 focus:ring-offset-2" data-view="recent-alerts">
+                    <div class="mb-3 text-red-600">
+                        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                    </div>
+                    <span class="text-base font-bold text-center text-gray-800">Recent Alerts</span>
+                </button>
+                <button id="quick-alerts-btn" class="menu-item flex flex-col items-center justify-center p-5 rounded-2xl shadow-lg transition-all duration-300 ease-in-out bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-75 focus:ring-offset-2" data-view="quick-alerts">
+                    <div class="mb-3 text-red-600">
+                        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                    </div>
+                    <span class="text-base font-bold text-center text-gray-800">Quick Alerts</span>
+                </button>
+                <button id="detect-verify-btn" class="menu-item flex flex-col items-center justify-center p-5 rounded-2xl shadow-lg transition-all duration-300 ease-in-out bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-75 focus:ring-offset-2" data-view="detect-verify">
+                    <div class="mb-3 text-red-600">
+                        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="17" x2="12" y2="17"></line><line x1="12" y1="10" x2="12" y2="10"></line><line x1="12" y1="7" x2="12" y2="7"></line></svg>
+                    </div>
+                    <span class="text-base font-bold text-center text-gray-800">Detect & Verify</span>
+                </button>
+                <button id="report-fraud-btn" class="menu-item flex flex-col items-center justify-center p-5 rounded-2xl shadow-lg transition-all duration-300 ease-in-out bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-75 focus:ring-offset-2" data-view="report-fraud">
+                    <div class="mb-3 text-red-600">
+                        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12" y2="17"></line></svg>
+                    </div>
+                    <span class="text-base font-bold text-center text-gray-800">Report Fraud</span>
+                </button>
+                <button id="fraud-logbook-btn" class="menu-item flex flex-col items-center justify-center p-5 rounded-2xl shadow-lg transition-all duration-300 ease-in-out bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-75 focus:ring-offset-2" data-view="fraud-logbook">
+                    <div class="mb-3 text-red-600">
+                        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>
+                    </div>
+                    <span class="text-base font-bold text-center text-gray-800">Fraud Logbook</span>
+                </button>
+                <button id="login-logout-btn" class="menu-item flex flex-col items-center justify-center p-5 rounded-2xl shadow-lg transition-all duration-300 ease-in-out bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-75 focus:ring-offset-2" data-view="login">
+                    <div class="mb-3 text-red-600">
+                        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-in"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg>
+                    </div>
+                    <span class="text-base font-bold text-center text-gray-800">Login/Logout</span>
+                </button>
+            </div>
+
+            <div id="content-area" class="border-t-2 pt-8 border-gray-200">
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-900 text-white p-6 text-center text-sm rounded-t-3xl mt-10 shadow-inner">
+        &copy; <span id="current-year"></span> UPI watchdog. All rights reserved.
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const contentArea = document.getElementById('content-area');
+            const menuItems = document.querySelectorAll('.menu-item');
+            const currentYearSpan = document.getElementById('current-year');
+            const loginLogoutButton = document.getElementById('login-logout-btn');
+
+
+            // Set current year in footer
+            currentYearSpan.textContent = new Date().getFullYear();
+
+            // Global variables for UPI Fraud Detector
+            let html5QrcodeScannerInstance;
+            let userLatitude = null;
+            let userLongitude = null;
+            let detectedFraudEntries = JSON.parse(localStorage.getItem('detectedFraudEntries')) || [];
+            let isLoggedIn = localStorage.getItem('isLoggedIn') === 'true'; // Check login status from local storage
+
+            // Define a list of suspicious UPI IDs (hardcoded for hackathon)
+            const suspiciousUpiIds = [
+                'scammer123@bank',
+                'fraudster.upi@xyzbank',
+                'fake_support@pay',
+                'lucky_draw_winner@upi',
+                'kyc.update@bank',
+                'refund.process@pay',
+                'customer.care@upi',
+                'support.team@bank',
+                'payment.verify@app',
+                'giftcard.claim@upi'
+            ];
+
+            // Define a list of suspicious keywords often used in fraud attempts
+            const suspiciousKeywords = [
+                'otp', 'kyc', 'refund', 'lucky draw', 'verify', 'link', 'click here',
+                'account blocked', 'prize money', 'commission', 'activation fee',
+                'security deposit', 'update details', 'urgent', 'dispute', 'chargeback',
+                'tax', 'customs', 'delivery fee', 'insurance', 'loan approval',
+                'investment opportunity', 'cryptocurrency', 'bitcoin', 'ethereum'
+            ];
+
+            // Mock Vendor Database (hardcoded for hackathon)
+            const vendorDatabase = [
+                { upiId: 'amazonpay@apl', name: 'Amazon India', isVerified: true, location: { lat: 12.9716, lon: 77.5946 } }, // Bangalore
+                { upiId: 'flipkart@axisbank', name: 'Flipkart', isVerified: true, location: { lat: 12.9716, lon: 77.5946 } }, // Bangalore
+                { upiId: 'swiggy@hdfcbank', name: 'Swiggy', isVerified: true, location: { lat: 12.9716, lon: 77.5946 } }, // Bangalore
+                { upiId: 'zomato@icici', name: 'Zomato', isVerified: true, location: { lat: 28.6139, lon: 77.2090 } }, // Delhi
+                { upiId: 'my_local_shop@paytm', name: 'My Local Kirana', isVerified: false, location: null },
+                { upiId: 'random_seller@sbi', name: 'Unknown Online Seller', isVerified: false, location: null },
+                { upiId: 'bigbazaar@hdfcbank', name: 'Big Bazaar', isVerified: true, location: { lat: 19.0760, lon: 72.8777 } }, // Mumbai
+                { upiId: 'dmart@axisbank', name: 'D-Mart', isVerified: true, location: { lat: 19.0760, lon: 72.8777 } }, // Mumbai
+                { upiId: 'reliancefresh@icici', name: 'Reliance Fresh', isVerified: true, location: { lat: 28.7041, lon: 77.1025 } }, // Delhi
+                { upiId: 'phishing.scam@upi', name: 'Phishing Scam Site', isVerified: false, location: { lat: 34.0522, lon: -118.2437 } }, // Los Angeles - example of foreign location
+            ];
+
+            // Simple distance calculation (Haversine formula approximation for small distances)
+            function getDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Radius of Earth in kilometers
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a =
+                    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                const distance = R * c; // Distance in km
+                return distance;
+            }
+
+            /**
+             * Clears any existing alerts from the UI and hides the payment buttons.
+             */
+            function clearAlert() {
+                const alertContainer = document.getElementById('alertContainer');
+                if (alertContainer) { // Check if element exists
+                    alertContainer.classList.add('hidden');
+                    alertContainer.classList.remove('fraud', 'safe');
+                    const alertIcon = document.getElementById('alertIcon');
+                    const alertMessage = document.getElementById('alertMessage');
+                    if (alertIcon) alertIcon.textContent = '';
+                    if (alertMessage) alertMessage.textContent = '';
+                }
+                const paymentButtonsContainer = document.getElementById('paymentButtonsContainer');
+                if (paymentButtonsContainer) {
+                    paymentButtonsContainer.classList.add('hidden'); // Hide the payment buttons container
+                }
+            }
+
+            /**
+             * Displays an alert message in the UI and conditionally shows the payment buttons.
+             * @param {string} message - The message to display.
+             * @param {boolean} isFraud - True if it's a fraud alert, false otherwise.
+             */
+            function displayAlert(message, isFraud) {
+                clearAlert(); // Clear previous alerts before displaying new one
+                const alertContainer = document.getElementById('alertContainer');
+                const alertIcon = document.getElementById('alertIcon');
+                const alertMessage = document.getElementById('alertMessage');
+                const paymentButtonsContainer = document.getElementById('paymentButtonsContainer');
+                const proceedToPayButton = document.getElementById('proceedToPayButton');
+
+                // Crucial checks for dynamically loaded elements
+                // These elements only exist within the 'detect-verify' view.
+                if (!alertContainer || !alertIcon || !alertMessage || !paymentButtonsContainer || !proceedToPayButton) {
+                    // console.warn("One or more alert/payment elements not found in the DOM for displayAlert. This is expected if not in 'Detect & Verify' view.");
+                    return; // Exit if elements are missing from the current view
+                }
+
+                alertContainer.classList.remove('hidden');
+                if (isFraud) {
+                    alertContainer.classList.add('fraud');
+                    alertIcon.textContent = '⚠️'; // Warning emoji
+                   
+                    // Show payment buttons, but change the generic UPI button to a warning style
+                    paymentButtonsContainer.classList.remove('hidden');
+                    proceedToPayButton.classList.remove('bg-green-600', 'hover:bg-green-700', 'focus:ring-green-500');
+                    proceedToPayButton.classList.add('bg-orange-500', 'hover:bg-orange-600', 'focus:ring-orange-400');
+                    proceedToPayButton.textContent = 'Proceed Anyway (Caution!)';
+
+                } else {
+                    alertContainer.classList.add('safe');
+                    alertIcon.textContent = '✅'; // Checkmark emoji
+                   
+                    // Show payment buttons with normal safe style for generic UPI
+                    paymentButtonsContainer.classList.remove('hidden');
+                    proceedToPayButton.classList.remove('bg-orange-500', 'hover:bg-orange-600', 'focus:ring-orange-400');
+                    proceedToPayButton.classList.add('bg-green-600', 'hover:bg-green-700', 'focus:ring-green-500');
+                    proceedToPayButton.textContent = 'Proceed via Generic UPI App';
+                }
+                alertMessage.textContent = message;
+            }
+
+            /**
+             * Detects potential fraud based on predefined rules, vendor database, and location.
+             * @param {string} receiverUpiId - The receiver's UPI ID.
+             * @param {number} amount - The transaction amount.
+             * @param {string} purpose - The transaction purpose/remarks.
+             * @param {number|null} userLat - User's current latitude.
+             * @param {number|null} userLon - User's current longitude.
+             * @returns {object} - An object with `isFraud` (boolean) and `message` (string).
+             */
+            function detectFraud(receiverUpiId, amount, purpose, userLat, userLon) {
+                let fraudReason = [];
+                let isVerifiedVendor = false;
+                let vendorName = 'Unknown';
+                let vendorLocation = null;
+                const timestamp = new Date().toLocaleString();
+
+                // Check against vendor database first
+                const matchedVendor = vendorDatabase.find(vendor => vendor.upiId.toLowerCase() === receiverUpiId.toLowerCase());
+                if (matchedVendor) {
+                    vendorName = matchedVendor.name;
+                    vendorLocation = matchedVendor.location;
+                    if (matchedVendor.isVerified) {
+                        isVerifiedVendor = true;
+                    } else {
+                        fraudReason.push(`Receiver's UPI ID matches an unverified vendor: "${vendorName}". Proceed with caution.`);
+                    }
+                } else {
+                    fraudReason.push("Receiver's UPI ID not found in the verified vendor database.");
+                }
+
+                // Rule 1: Check against known suspicious UPI IDs
+                if (suspiciousUpiIds.includes(receiverUpiId.toLowerCase())) {
+                    fraudReason.push("Receiver's UPI ID is on a known suspicious list.");
+                }
+
+                // Rule 2: Check for suspicious transaction amounts
+                if (amount < 10 && amount > 0) {
+                    fraudReason.push("Transaction amount is unusually small, which can be a sign of phishing attempts.");
+                } else if (amount > 50000) {
+                    fraudReason.push("Transaction amount is very high, proceed with caution.");
+                }
+
+                // Rule 3: Check for suspicious keywords in purpose/remarks
+                const lowerCasePurpose = purpose.toLowerCase();
+                for (const keyword of suspiciousKeywords) {
+                    if (lowerCasePurpose.includes(keyword)) {
+                        fraudReason.push(`Purpose contains suspicious keyword: "${keyword}".`);
+                        break;
+                    }
+                }
+
+                // Rule 4: Location-based fraud detection
+                if (userLat !== null && userLon !== null && vendorLocation && vendorLocation.lat && vendorLocation.lon) {
+                    const distance = getDistance(userLat, userLon, vendorLocation.lat, vendorLocation.lon);
+                    if (distance > 1000) { // If distance is over 1000 km, it could be suspicious
+                        fraudReason.push(`Transaction location (${userLat.toFixed(2)}, ${userLon.toFixed(2)}) is unusually far from the vendor's known location (${vendorLocation.lat.toFixed(2)}, ${vendorLocation.lon.toFixed(2)}) - ${distance.toFixed(0)} km away.`);
+                    }
+                } else if (userLat !== null && userLon !== null && (!vendorLocation || !vendorLocation.lat || !vendorLocation.lon)) {
+                    // If user location is available but vendor location is not
+                    if (!isVerifiedVendor) {
+                        fraudReason.push("Your location is available, but the receiver's location is unknown or unverified. Exercise caution.");
+                    }
+                } else if (userLat === null || userLon === null) {
+                    fraudReason.push("Your location could not be determined. Location-based fraud checks are limited.");
+                }
+
+                const isFraud = fraudReason.length > 0;
+                const message = isFraud ? `Potential Fraud Detected!\n${fraudReason.join("\n")}` : `No immediate fraud detected based on current rules. ${isVerifiedVendor ? `Receiver is a verified vendor: "${vendorName}".` : " Always verify receiver details before payment."}`;
+
+                // Store the detected fraud in logbook
+                if (isFraud) {
+                    const fraudEntry = {
+                        timestamp: timestamp,
+                        receiverUpiId: receiverUpiId,
+                        amount: amount,
+                        purpose: purpose,
+                        userLocation: userLatitude && userLongitude ? `${userLatitude.toFixed(6)}, ${userLongitude.toFixed(6)}` : 'Unknown',
+                        vendorName: vendorName,
+                        fraudDetails: fraudReason.join("; "),
+                        status: 'Detected - Unsubmitted' // Default status
+                    };
+                    detectedFraudEntries.push(fraudEntry);
+                    localStorage.setItem('detectedFraudEntries', JSON.stringify(detectedFraudEntries));
+                }
+
+                return { isFraud, message };
+            }
+
+            /**
+             * Handles successful QR code scan.
+             * Parses UPI URL and populates form fields, then triggers fraud check.
+             * @param {string} decodedText - The text decoded from the QR code.
+             * @param {object} decodedResult - Additional details from the scanner.
+             */
+            function onScanSuccess(decodedText, decodedResult) {
+                console.log(`QR Code detected: ${decodedText}`);
+
+                // Attempt to parse UPI QR code string
+                try {
+                    const url = new URL(decodedText);
+                    if (url.protocol === 'upi:') {
+                        const params = new URLSearchParams(url.search);
+                        const pa = params.get('pa'); // Payee Address (UPI ID)
+                        const am = params.get('am'); // Amount
+                        const tn = params.get('tn'); // Transaction Note (Purpose)
+
+                        const receiverUpiIdInput = document.getElementById('receiverUpiId');
+                        const amountInput = document.getElementById('amount');
+                        const purposeInput = document.getElementById('purpose');
+
+                        if (receiverUpiIdInput) receiverUpiIdInput.value = pa || '';
+                        if (amountInput) amountInput.value = am ? parseFloat(am) : '';
+                        if (purposeInput) purposeInput.value = tn || '';
+
+                        // Automatically trigger fraud check after scanning and populating
+                        const fraudResult = detectFraud(pa, am ? parseFloat(am) : 0, tn, userLatitude, userLongitude);
+                        displayAlert(fraudResult.message, fraudResult.isFraud);
+
+                        // Stop the scanner after successful scan
+                        stopScannerIfRunning();
+                        const qrScannerContainer = document.getElementById('qrScannerContainer');
+                        if (qrScannerContainer) qrScannerContainer.classList.add('hidden');
+                       
+                    } else {
+                        displayAlert("Scanned QR code is not a valid UPI QR code.", true);
+                    }
+                } catch (e) {
+                    console.error("Error parsing UPI QR code:", e);
+                    displayAlert("Could not parse scanned QR code as a UPI payment link.", true);
+                }
+            }
+
+            function onScanFailure(error) {
+                // optional: handle scan errors or ignore them
+                // console.warn(`QR error: ${error}`);
+            }
+
+            // Function to stop QR scanner if it's running
+            function stopScannerIfRunning() {
+                // Ensure html5QrcodeScannerInstance and its stop method exist
+                // Check if the scanner is actually running before trying to stop
+                if (html5QrcodeScannerInstance && typeof html5QrcodeScannerInstance.stop === 'function') {
+                    // Note: html5-qrcode v2.0.9+ uses `Html5QrcodeScanner.Html5QrcodeScannerState.SCANNING`
+                    try {
+                        if (html5QrcodeScannerInstance.getState() === Html5QrcodeScanner.Html5QrcodeScannerState.SCANNING) {
+                             html5QrcodeScannerInstance.stop().then(() => {
+                                console.log("QR scanning stopped.");
+                            }).catch(err => {
+                                console.error("Error stopping QR scanner during state check:", err);
+                            });
+                        }
+                    } catch (e) {
+                        console.warn("Attempted to stop scanner not in SCANNING state or old library version:", e);
+                        // Force stop anyway if it seems stuck, but handle potential errors
+                        html5QrcodeScannerInstance.stop().then(() => {
+                            console.log("QR scanning stopped (forced).");
+                        }).catch(err => {
+                            console.error("Error forcing QR scanner stop:", err);
+                        });
+                    }
+                }
+            }
+
+            /**
+             * Handles successful retrieval of GPS location.
+             * @param {GeolocationPosition} position - The GeolocationPosition object.
+             */
+            function handleGeolocationSuccess(position) {
+                userLatitude = position.coords.latitude;
+                userLongitude = position.coords.longitude;
+                const latitudeSpan = document.getElementById('latitude');
+                const longitudeSpan = document.getElementById('longitude');
+                const locationInfo = document.getElementById('locationInfo');
+
+                if (latitudeSpan) latitudeSpan.textContent = userLatitude.toFixed(6);
+                if (longitudeSpan) longitudeSpan.textContent = userLongitude.toFixed(6);
+                if (locationInfo) locationInfo.classList.remove('hidden');
+                console.log(`User location: Lat ${userLatitude}, Lon ${userLongitude}`);
+                displayAlert("Your location has been successfully retrieved.", false);
+            }
+
+            /**
+             * Handles errors during GPS location retrieval.
+             * @param {GeolocationPositionError} error - The GeolocationPositionError object.
+             */
+            function handleGeolocationError(error) {
+                userLatitude = null; // Reset
+                userLongitude = null; // Reset
+                const locationInfo = document.getElementById('locationInfo');
+                if (locationInfo) locationInfo.classList.add('hidden');
+                let errorMessage = "Could not retrieve your location. ";
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage += "You denied the request for Geolocation. Please allow location access in your browser settings.";
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage += "Location information is unavailable.";
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage += "The request to get user location timed out.";
+                        break;
+                    case error.UNKNOWN_ERROR:
+                        errorMessage += "An unknown error occurred.";
+                        break;
+                }
+                console.error("Geolocation error:", errorMessage, error);
+                displayAlert(errorMessage, true);
+            }
+
+            /**
+             * Function to construct and attempt to open a UPI deep link.
+             * @param {string} appScheme - The scheme for the specific app (e.g., 'upi:', 'phonepe:').
+             */
+            function initiateUpiPayment(appScheme) {
+                const receiverUpiIdInput = document.getElementById('receiverUpiId');
+                const amountInput = document.getElementById('amount');
+                const purposeInput = document.getElementById('purpose');
+
+                const receiverUpiId = receiverUpiIdInput ? receiverUpiIdInput.value.trim() : '';
+                const amount = amountInput ? amountInput.value : '';
+                const purpose = purposeInput ? purposeInput.value.trim() : '';
+
+                if (!receiverUpiId || !amount || parseFloat(amount) <= 0) {
+                    displayAlert("Please ensure receiver UPI ID and amount are filled to proceed.", true);
+                    return;
+                }
+
+                let upiDeepLink;
+                if (appScheme === 'phonepe:') {
+                    upiDeepLink = `phonepe://pay?pa=${encodeURIComponent(receiverUpiId)}&am=${encodeURIComponent(amount)}`;
+                    if (purpose) {
+                        upiDeepLink += `&tn=${encodeURIComponent(purpose)}`;
+                    }
+                    upiDeepLink += `&cu=INR`; // PhonePe often expects currency code
+                } else { // Default to generic UPI
+                    upiDeepLink = `upi://pay?pa=${encodeURIComponent(receiverUpiId)}&am=${encodeURIComponent(amount)}`;
+                    if (purpose) {
+                        upiDeepLink += `&tn=${encodeURIComponent(purpose)}`;
+                    }
+                }
+               
+                console.log(`Attempting to open UPI app with ${appScheme}:`, upiDeepLink);
+                window.location.href = upiDeepLink;
+
+                // Fallback for when the app doesn't open
+                const fallbackTimeout = setTimeout(() => {
+                    displayAlert(`If your UPI app (${appScheme === 'phonepe:' ? 'PhonePe' : 'generic UPI'}) did not open automatically, please ensure you have the app installed and try again, or manually enter the details.`, false);
+                }, 700);    
+
+                window.addEventListener('blur', () => clearTimeout(fallbackTimeout), { once: true });
+            }
+
+            // Function to update the login/logout button text and icon
+            function updateLoginButton() {
+                const iconSvg = loginLogoutButton.querySelector('.icon-svg');
+                const spanText = loginLogoutButton.querySelector('span');
+                if (isLoggedIn) {
+                    iconSvg.innerHTML = '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/>';
+                    spanText.textContent = 'Logout';
+                } else {
+                    iconSvg.innerHTML = '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/>'; // Re-using login icon for consistency
+                    spanText.textContent = 'Login';
+                }
+            }
+
+
+            // Function to render content based on the active view
+            function renderContent(view) {
+                let contentHtml = '';
+                // Stop scanner if it's running BEFORE changing innerHTML
+                stopScannerIfRunning();    
+                clearAlert(); // Clear alerts when changing views
+
+                if (!isLoggedIn && view !== 'login') {
+                    // If not logged in and trying to access other views, redirect to login
+                    view = 'login';
+                    // Set active menu item to login/logout button
+                    setActiveMenuItem(loginLogoutButton);
+                }
+
+                switch (view) {
+                    case 'dashboard':
+                        contentHtml = `
+                            <div class="p-6 text-center animate-fade-in">
+                                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Dashboard</h2>
+                                <p class="text-lg text-gray-600">Your overall risk score will be displayed here.</p>
+                                <div class="mt-6 p-8 bg-gradient-to-r from-blue-200 to-indigo-200 rounded-xl shadow-xl transform hover:scale-105 transition-transform duration-300">
+                                    <p class="text-6xl font-extrabold text-blue-800">75/100</p>
+                                    <p class="text-xl text-blue-700 mt-2 font-medium">Low Risk</p>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    case 'settings':
+                        contentHtml = `
+                            <div class="p-6 text-center animate-fade-in">
+                                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Settings</h2>
+                                <ul class="text-lg text-gray-600 space-y-4">
+                                    <li class="p-4 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer">Transaction History</li>
+                                    <li class="p-4 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer">Awareness Hub</li>
+                                    <li class="p-4 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer">Help and Support</li>
+                                </ul>
+                            </div>
+                        `;
+                        break;
+                    case 'transaction-scanner': // This section is now less critical as "Detect & Verify" handles main scanning
+                        contentHtml = `
+                            <div class="p-6 text-center animate-fade-in">
+                                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Transaction Scanner</h2>
+                                <p class="text-lg text-gray-600">This feature is integrated into 'Detect & Verify'. Please use that section for scanning and fraud detection.</p>
+                                <button onclick="document.getElementById('detect-verify-btn').click()" class="mt-6 px-8 py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-400 focus:ring-offset-2">
+                                    Go to Detect & Verify
+                                </button>
+                            </div>
+                        `;
+                        break;
+                    case 'recent-alerts':
+                        contentHtml = `
+                            <div class="p-6 text-center animate-fade-in">
+                                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Recent Alerts</h2>
+                                <p class="text-lg text-gray-600">View your recent fraud alerts here.</p>
+                                <ul class="mt-6 space-y-4">
+                                    <li class="p-4 bg-yellow-100 border-l-8 border-yellow-500 text-left rounded-lg shadow-md">
+                                        <p class="font-bold text-yellow-900">Suspicious transaction detected: ₹500 to unknown merchant.</p>
+                                        <p class="text-sm text-gray-600 mt-1">2 hours ago</p>
+                                        <p class="text-sm text-yellow-700 mt-2">Action: Review and Block</p>
+                                    </li>
+                                    <li class="p-4 bg-green-100 border-l-8 border-green-500 text-left rounded-lg shadow-md">
+                                        <p class="font-bold text-green-900">No unusual activity detected.</p>
+                                        <p class="text-sm text-gray-600 mt-1">1 day ago</p>
+                                        <p class="text-sm text-green-700 mt-2">Status: All Clear</p>
+                                    </li>
+                                </ul>
+                            </div>
+                        `;
+                        break;
+                    case 'quick-alerts':
+                        contentHtml = `
+                            <div class="p-6 text-center animate-fade-in">
+                                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Quick Alerts</h2>
+                                <p class="text-lg text-gray-600">Set up quick alerts for specific types of transactions or amounts.</p>
+                                <button class="mt-6 px-8 py-4 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-offset-2">
+                                    Configure Quick Alerts
+                                </button>
+                            </div>
+                        `;
+                        break;
+                    case 'detect-verify': // Renamed and integrated UPI Fraud Detector content
+                        contentHtml = `
+                            <div class="p-6 animate-fade-in">
+                                <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">UPI Fraud Detector</h2>
+                                <p class="text-center text-gray-600 mb-8">Enter transaction details or scan a QR code to check for potential fraud before payment.</p>
+
+                                <div id="qrScannerContainer" class="hidden mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                    <h3 class="text-xl font-semibold text-gray-700 mb-4 text-center">Scan UPI QR Code</h3>
+                                    <div id="reader"></div>
+                                    <button id="stopScanButton" class="mt-4 w-full bg-red-500 text-white hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-500 focus:ring-opacity-50 py-2 px-4 rounded-lg font-semibold">Stop Scanning</button>
+                                </div>
+
+                                <div class="space-y-4 mt-6">
+                                    <div>
+                                        <label for="senderUpiId" class="block text-gray-700 text-sm font-medium mb-1">Your UPI ID (Sender)</label>
+                                        <input type="text" id="senderUpiId" placeholder="e.g., yourname@bank" class="focus:border-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label for="receiverUpiId" class="block text-gray-700 text-sm font-medium mb-1">Receiver's UPI ID</label>
+                                        <input type="text" id="receiverUpiId" placeholder="e.g., scammer@bank" class="focus:border-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label for="amount" class="block text-gray-700 text-sm font-medium mb-1">Amount (INR)</label>
+                                        <input type="number" id="amount" placeholder="e.g., 1000" class="focus:border-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label for="purpose" class="block text-gray-700 text-sm font-medium mb-1">Purpose/Remarks (Optional)</label>
+                                        <textarea id="purpose" rows="3" placeholder="e.g., for online purchase, KYC update" class="focus:border-indigo-500"></textarea>
+                                    </div>
+                                    <div id="locationInfo" class="hidden text-sm text-gray-600 mt-2 p-2 bg-gray-100 rounded">
+                                        <p><strong>Your Location:</strong> <span id="latitude"></span>, <span id="longitude"></span></p>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col sm:flex-row justify-center gap-4 mt-8">
+                                    <button id="scanQrButton" class="bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                                        Scan QR Code
+                                    </button>
+                                    <button id="getLocationButton" class="bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
+                                        Get My Location
+                                    </button>
+                                    <button id="checkButton" class="bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50">
+                                        Check for Fraud
+                                    </button>
+                                    <button id="resetButton" class="bg-gray-200 text-gray-800 hover:bg-gray-300 focus:outline-none focus:ring-4 focus:ring-gray-400 focus:ring-opacity-50">
+                                        Reset
+                                    </button>
+                                </div>
+
+                                <div id="paymentButtonsContainer" class="hidden flex flex-col sm:flex-row justify-center gap-4 mt-6">
+                                    <button id="proceedToPayButton" class="w-full bg-green-600 text-white hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50 py-3 px-6 rounded-lg font-semibold text-lg">
+                                        Proceed via Generic UPI App
+                                    </button>
+                                    <button id="payWithPhonePeButton" class="w-full phonepe-button hover:bg-opacity-90 focus:outline-none focus:ring-4 focus:ring-purple-600 focus:ring-opacity-50 py-3 px-6 rounded-lg font-semibold text-lg">
+                                        Pay with PhonePe
+                                    </button>
+                                </div>
+
+                                <div id="alertContainer" class="alert hidden">
+                                    <span id="alertIcon" class="alert-icon"></span>
+                                    <p id="alertMessage" class="flex-grow"></p>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    case 'report-fraud':
+                        contentHtml = `
+                            <div class="p-6 text-center animate-fade-in">
+                                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Report Fraud</h2>
+                                <p class="text-lg text-gray-600">Report any fraudulent activity you encounter. Submitting here adds it to your Fraud Logbook.</p>
+                                <textarea
+                                    id="reportFraudDetails"
+                                    class="mt-4 w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-50 transition-all duration-200 resize-y"
+                                    rows="7"
+                                    placeholder="Describe the fraudulent activity in detail, including UPI IDs, amounts, and any suspicious communications..."
+                                ></textarea>
+                                <button id="submitFraudReport" class="mt-6 px-8 py-4 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-offset-2">
+                                    Submit Report
+                                </button>
+                                <div id="reportConfirmation" class="mt-4 text-green-600 font-semibold hidden">Report submitted successfully! Check your Fraud Logbook.</div>
+                            </div>
+                        `;
+                        break;
+                    case 'fraud-logbook': // New Fraud Logbook view
+                        contentHtml = `
+                            <div class="p-6 animate-fade-in">
+                                <h2 class="text-2xl font-semibold text-gray-800 mb-4 text-center">Fraud Logbook</h2>
+                                <p class="text-lg text-gray-600 mb-6 text-center">Here's a record of potential fraud cases detected or reported by you.</p>
+                                <div id="logbookEntries" class="space-y-4">
+                                    </div>
+                                <div id="noLogbookEntries" class="text-center text-gray-500 mt-6 hidden">No fraud entries found yet.</div>
+                                <button id="clearLogbookButton" class="mt-8 px-6 py-3 bg-gray-500 text-white font-bold rounded-xl shadow-lg hover:bg-gray-600 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-gray-400 focus:ring-offset-2">
+                                    Clear All Entries
+                                </button>
+                            </div>
+                        `;
+                        break;
+                    case 'login':
+                        contentHtml = `
+                            <div class="p-6 text-center animate-fade-in">
+                                <h2 class="text-2xl font-semibold text-gray-800 mb-6">Login to UPI Watchdog</h2>
+                                <p class="text-lg text-gray-600 mb-8">Please enter your credentials to access the full features.</p>
+                                <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-lg border border-gray-200">
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label for="username" class="block text-gray-700 text-sm font-medium mb-1 text-left">Username</label>
+                                            <input type="text" id="username" placeholder="Enter your username" class="focus:border-indigo-500">
+                                        </div>
+                                        <div>
+                                            <label for="password" class="block text-gray-700 text-sm font-medium mb-1 text-left">Password</label>
+                                            <input type="password" id="password" placeholder="Enter your password" class="focus:border-indigo-500">
+                                        </div>
+                                        <button id="loginButton" class="mt-6 w-full px-8 py-4 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-400 focus:ring-offset-2">
+                                            Login
+                                        </button>
+                                        <button id="registerButton" class="mt-4 w-full px-8 py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-400 focus:ring-offset-2">
+                                            Register (Mock)
+                                        </button>
+                                    </div>
+                                    <p id="loginMessage" class="mt-4 text-red-600 hidden"></p>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                }
+                contentArea.innerHTML = contentHtml;
+                // After rendering, re-attach event listeners for the new content
+                attachDynamicEventListeners(view);
+            }
+
+            // Function to attach event listeners to dynamically rendered content
+            function attachDynamicEventListeners(currentView) {
+                // Clear any previous alerts before attaching new listeners
+                clearAlert(); // Ensure alert is cleared for the new view
+
+                // Event listeners for 'detect-verify' view
+                if (currentView === 'detect-verify') {
+                    const scanQrButton = document.getElementById('scanQrButton');
+                    const stopScanButton = document.getElementById('stopScanButton');
+                    const getLocationButton = document.getElementById('getLocationButton');
+                    const checkButton = document.getElementById('checkButton');
+                    const resetButton = document.getElementById('resetButton');
+                    const proceedToPayButton = document.getElementById('proceedToPayButton');
+                    const payWithPhonePeButton = document.getElementById('payWithPhonePeButton');
+
+                    if (scanQrButton) {
+                        scanQrButton.addEventListener('click', () => {
+                            clearAlert();
+                            const qrScannerContainer = document.getElementById('qrScannerContainer');
+                            const readerDiv = document.getElementById('reader');
+
+                            if (qrScannerContainer && readerDiv) { // Ensure containers exist
+                                qrScannerContainer.classList.remove('hidden');
+
+                                // Initialize and render scanner ONLY if not already initialized or running
+                                if (typeof Html5QrcodeScanner !== 'undefined' && (!html5QrcodeScannerInstance || html5QrcodeScannerInstance.getState() === Html5QrcodeScanner.Html5QrcodeScannerState.NOT_STARTED)) {
+                                    html5QrcodeScannerInstance = new Html5QrcodeScanner(
+                                        "reader", { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false }, /* verbose= */ false);
+                                    html5QrcodeScannerInstance.render(onScanSuccess, onScanFailure);
+                                    console.log("Html5QrcodeScanner initialized and rendered for detect-verify.");
+                                } else if (html5QrcodeScannerInstance && html5QrcodeScannerInstance.getState() === Html5QrcodeScanner.Html5QrcodeScannerState.SCANNING) {
+                                    console.log("Scanner is already running.");
+                                    displayAlert("QR scanner is already active.", false);
+                                } else {
+                                    displayAlert("QR Code scanner library failed to load or is in an unexpected state. Try refreshing.", true);
+                                    if (scanQrButton) {
+                                        scanQrButton.disabled = true;
+                                        scanQrButton.textContent = "Scanner Unavailable";
+                                        scanQrButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                                        scanQrButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+                                    }
+                                }
+                            } else {
+                                console.error("QR scanner container or reader div not found after render.");
+                            }
+                        });
+                    }
+
+                    if (stopScanButton) {
+                        stopScanButton.addEventListener('click', () => {
+                            stopScannerIfRunning();
+                            const qrScannerContainer = document.getElementById('qrScannerContainer');
+                            if (qrScannerContainer) qrScannerContainer.classList.add('hidden');
+                            console.log("QR code scanning stopped by user.");
+                        });
+                    }
+
+                    if (getLocationButton) {
+                        getLocationButton.addEventListener('click', () => {
+                            clearAlert();
+                            if (navigator.geolocation) {
+                                displayAlert("Attempting to get your location...", false);
+                                navigator.geolocation.getCurrentPosition(handleGeolocationSuccess, handleGeolocationError, {
+                                    enableHighAccuracy: true,
+                                    timeout: 5000, // 5 seconds
+                                    maximumAge: 0 // No cached position
+                                });
+                            } else {
+                                displayAlert("Geolocation is not supported by your browser.", true);
+                                console.error("Geolocation is not supported by this browser.");
+                            }
+                        });
+                    }
+
+                    if (checkButton) {
+                        checkButton.addEventListener('click', () => {
+                            const senderUpiId = document.getElementById('senderUpiId') ? document.getElementById('senderUpiId').value.trim() : '';
+                            const receiverUpiId = document.getElementById('receiverUpiId') ? document.getElementById('receiverUpiId').value.trim() : '';
+                            const amount = document.getElementById('amount') ? parseFloat(document.getElementById('amount').value) : 0;
+                            const purpose = document.getElementById('purpose') ? document.getElementById('purpose').value.trim() : '';
+
+                            if (!senderUpiId || !receiverUpiId || isNaN(amount) || amount <= 0) {
+                                displayAlert("Please fill in all required fields (Your UPI ID, Receiver UPI ID, Amount) with valid values.", true);
+                                return;
+                            }
+
+                            const fraudResult = detectFraud(receiverUpiId, amount, purpose, userLatitude, userLongitude);
+                            displayAlert(fraudResult.message, fraudResult.isFraud);
+                        });
+                    }
+
+                    if (resetButton) {
+                        resetButton.addEventListener('click', () => {
+                            const senderUpiIdInput = document.getElementById('senderUpiId');
+                            const receiverUpiIdInput = document.getElementById('receiverUpiId');
+                            const amountInput = document.getElementById('amount');
+                            const purposeInput = document.getElementById('purpose');
+                            const locationInfo = document.getElementById('locationInfo');
+                            const latitudeSpan = document.getElementById('latitude');
+                            const longitudeSpan = document.getElementById('longitude');
+
+                            if (senderUpiIdInput) senderUpiIdInput.value = '';
+                            if (receiverUpiIdInput) receiverUpiIdInput.value = '';
+                            if (amountInput) amountInput.value = '';
+                            if (purposeInput) purposeInput.value = '';
+                            userLatitude = null; // Clear stored location
+                            userLongitude = null; // Clear stored location
+                            if (locationInfo) locationInfo.classList.add('hidden'); // Hide location info
+                            if (latitudeSpan) latitudeSpan.textContent = '';
+                            if (longitudeSpan) longitudeSpan.textContent = '';
+
+                            clearAlert();
+                            stopScannerIfRunning();
+                            const qrScannerContainer = document.getElementById('qrScannerContainer');
+                            if (qrScannerContainer) qrScannerContainer.classList.add('hidden');
+                        });
+                    }
+
+                    if (proceedToPayButton) {
+                        proceedToPayButton.addEventListener('click', () => {
+                            initiateUpiPayment('upi:');
+                        });
+                    }
+
+                    if (payWithPhonePeButton) {
+                        payWithPhonePeButton.addEventListener('click', () => {
+                            initiateUpiPayment('phonepe:');
+                        });
+                    }
+                } // End of 'detect-verify' specific listeners
+
+                // Event listeners for 'report-fraud' view
+                if (currentView === 'report-fraud') {
+                    const submitFraudReportButton = document.getElementById('submitFraudReport');
+                    const reportFraudDetailsTextarea = document.getElementById('reportFraudDetails');
+                    const reportConfirmationDiv = document.getElementById('reportConfirmation');
+
+                    if (submitFraudReportButton && reportFraudDetailsTextarea && reportConfirmationDiv) {
+                        submitFraudReportButton.addEventListener('click', () => {
+                            const details = reportFraudDetailsTextarea.value.trim();
+                            if (details) {
+                                const newFraudEntry = {
+                                    timestamp: new Date().toLocaleString(),
+                                    receiverUpiId: 'N/A (Manual Report)',
+                                    amount: 'N/A (Manual Report)',
+                                    purpose: details,
+                                    userLocation: userLatitude && userLongitude ? `${userLatitude.toFixed(6)}, ${userLongitude.toFixed(6)}` : 'Unknown',
+                                    vendorName: 'N/A (Manual Report)',
+                                    fraudDetails: `Manually reported: ${details}`,
+                                    status: 'Manual Report - Unsubmitted'
+                                };
+                                detectedFraudEntries.push(newFraudEntry);
+                                localStorage.setItem('detectedFraudEntries', JSON.stringify(detectedFraudEntries));
+                                reportFraudDetailsTextarea.value = ''; // Clear textarea
+                                reportConfirmationDiv.classList.remove('hidden'); // Show confirmation
+                                setTimeout(() => reportConfirmationDiv.classList.add('hidden'), 5000); // Hide after 5 seconds
+                                console.log('Manual fraud report added to logbook.');
+                            } else {
+                                alert('Please provide details for the fraud report.');
+                            }
+                        });
+                    }
+                } // End of 'report-fraud' specific listeners
+
+                // Event listeners for 'fraud-logbook' view
+                if (currentView === 'fraud-logbook') {
+                    const logbookEntriesDiv = document.getElementById('logbookEntries');
+                    const noLogbookEntriesDiv = document.getElementById('noLogbookEntries');
+                    const clearLogbookButton = document.getElementById('clearLogbookButton');
+
+                    if (logbookEntriesDiv && noLogbookEntriesDiv) {
+                        if (detectedFraudEntries.length === 0) {
+                            noLogbookEntriesDiv.classList.remove('hidden');
+                            logbookEntriesDiv.innerHTML = ''; // Clear any existing content
+                        } else {
+                            noLogbookEntriesDiv.classList.add('hidden');
+                            logbookEntriesDiv.innerHTML = detectedFraudEntries.map((entry, index) => `
+                                <div class="p-4 bg-red-50 border-l-8 border-red-500 rounded-lg shadow-md text-left">
+                                    <p class="text-xs text-gray-500">${entry.timestamp}</p>
+                                    <p class="font-bold text-red-900 mt-1">Fraud Details: ${entry.fraudDetails}</p>
+                                    <p class="text-sm text-gray-700">Receiver UPI: ${entry.receiverUpiId}</p>
+                                    <p class="text-sm text-gray-700">Amount: ${entry.amount}</p>
+                                    <p class="text-sm text-gray-700">Purpose: ${entry.purpose}</p>
+                                    <p class="text-sm text-gray-700">Vendor: ${entry.vendorName}</p>
+                                    <p class="text-sm text-gray-700">User Location: ${entry.userLocation}</p>
+                                    <p class="text-sm text-gray-700">Status: <span class="font-semibold ${entry.status.includes('Submitted') ? 'text-green-600' : 'text-orange-600'}">${entry.status}</span></p>
+                                    <button class="submit-log-entry-btn mt-3 px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed" data-index="${index}" ${entry.status.includes('Submitted') ? 'disabled' : ''}>
+                                        ${entry.status.includes('Submitted') ? 'Submitted' : 'Mark as Submitted'}
+                                    </button>
+                                </div>
+                            `).join('');
+
+                            // Attach listeners to "Mark as Submitted" buttons
+                            document.querySelectorAll('.submit-log-entry-btn').forEach(button => {
+                                button.addEventListener('click', (event) => {
+                                    const index = event.target.dataset.index;
+                                    if (detectedFraudEntries[index]) {
+                                        detectedFraudEntries[index].status = 'Submitted';
+                                        localStorage.setItem('detectedFraudEntries', JSON.stringify(detectedFraudEntries));
+                                        renderContent('fraud-logbook'); // Re-render to update status
+                                    }
+                                });
+                            });
+                        }
+                    }
+
+                    if (clearLogbookButton) {
+                        clearLogbookButton.addEventListener('click', () => {
+                            if (confirm('Are you sure you want to clear all fraud logbook entries? This action cannot be undone.')) {
+                                detectedFraudEntries = []; // Clear array
+                                localStorage.removeItem('detectedFraudEntries'); // Clear from localStorage
+                                renderContent('fraud-logbook'); // Re-render to show empty state
+                                alert('All fraud logbook entries have been cleared.');
+                            }
+                        });
+                    }
+                } // End of 'fraud-logbook' specific listeners
+
+                // Event listeners for 'login' view
+                if (currentView === 'login') {
+                    const loginButton = document.getElementById('loginButton');
+                    const registerButton = document.getElementById('registerButton');
+                    const usernameInput = document.getElementById('username');
+                    const passwordInput = document.getElementById('password');
+                    const loginMessage = document.getElementById('loginMessage');
+
+                    if (loginButton) {
+                        loginButton.addEventListener('click', () => {
+                            const username = usernameInput.value;
+                            const password = passwordInput.value;
+
+                            // Mock login logic
+                            if (username === 'user' && password === 'password') { // Simple mock credentials
+                                isLoggedIn = true;
+                                localStorage.setItem('isLoggedIn', 'true');
+                                loginMessage.classList.add('hidden');
+                                alert('Login successful!');
+                                updateLoginButton(); // Update button text
+                                renderContent('dashboard'); // Redirect to dashboard after login
+                            } else {
+                                loginMessage.textContent = 'Invalid username or password.';
+                                loginMessage.classList.remove('hidden');
+                            }
+                        });
+                    }
+
+                    if (registerButton) {
+                        registerButton.addEventListener('click', () => {
+                            alert('Mock registration successful! You can now log in with the username "user" and password "password".');
+                            usernameInput.value = 'user';
+                            passwordInput.value = 'password';
+                        });
+                    }
+                }
+            }
+
+
+            // Function to update active menu item styling
+            function setActiveMenuItem(activeButton) {
+                menuItems.forEach(item => {
+                    item.classList.remove(
+                        'bg-gradient-to-br', 'from-red-600', 'to-red-800', 'text-white', 'transform', 'scale-105', 'ring-4', 'ring-red-300', 'ring-opacity-75'
+                    );
+                    item.classList.add(
+                        'bg-white', 'text-gray-700', 'hover:bg-red-50', 'hover:text-red-600', 'hover:shadow-xl'
+                    );
+                    const itemIconDiv = item.querySelector('div');
+                    if (itemIconDiv) {
+                        itemIconDiv.classList.remove('text-white');
+                        itemIconDiv.classList.add('text-red-600');
+                    }
+                    const itemSpan = item.querySelector('span');
+                    if (itemSpan) {
+                        itemSpan.classList.remove('text-white');
+                        itemSpan.classList.add('text-gray-800');
+                    }
+                });
+
+                // Apply active styles to the selected button
+                activeButton.classList.remove(
+                    'bg-white', 'text-gray-700', 'hover:bg-red-50', 'hover:text-red-600', 'hover:shadow-xl'
+                );
+                activeButton.classList.add(
+                    'bg-gradient-to-br', 'from-red-600', 'to-red-800', 'text-white', 'transform', 'scale-105', 'ring-4', 'ring-red-300', 'ring-opacity-75'
+                );
+                const activeIconDiv = activeButton.querySelector('div');
+                if (activeIconDiv) {
+                    activeIconDiv.classList.remove('text-red-600');
+                    activeIconDiv.classList.add('text-white');
+                }
+                const activeSpan = activeButton.querySelector('span');
+                if (activeSpan) {
+                    activeSpan.classList.remove('text-gray-800');
+                    activeSpan.classList.add('text-white');
+                }
+            }
+
+            // Add event listeners to menu items
+            menuItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const view = item.dataset.view;
+
+                    // If not logged in and clicking a non-login menu item, redirect to login
+                    if (!isLoggedIn && view !== 'login') {
+                        alert('Please log in to access this feature.');
+                        renderContent('login');
+                        setActiveMenuItem(loginLogoutButton); // Keep Login/Logout button active
+                    } else if (view === 'login') {
+                        if (isLoggedIn) {
+                            // If currently logged in, clicking "Login/Logout" means logout
+                            isLoggedIn = false;
+                            localStorage.setItem('isLoggedIn', 'false');
+                            alert('You have been logged out.');
+                            updateLoginButton();
+                            renderContent('login'); // Redirect to login page
+                        } else {
+                            // If not logged in, clicking "Login/Logout" means go to login page
+                            renderContent(view);
+                            setActiveMenuItem(item);
+                        }
+                    } else {
+                        // If logged in and clicking other menu items, proceed as usual
+                        renderContent(view);
+                        setActiveMenuItem(item);
+                    }
+                });
+            });
+
+            // Set initial view based on login status
+            if (isLoggedIn) {
+                renderContent('dashboard');
+                setActiveMenuItem(document.getElementById('dashboard-btn'));
+            } else {
+                renderContent('login');
+                setActiveMenuItem(document.getElementById('login-logout-btn'));
+            }
+            updateLoginButton(); // Initial update of the login/logout button text/icon
+        });
+    </script>
+</body>
+</html>
